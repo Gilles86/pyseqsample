@@ -1,6 +1,9 @@
 from pyseqsample.utils import dnormP, pnormP
 import numpy as np
 from pyseqsample.models.racemodels import Accumulator
+import scipy as sp
+from scipy import stats
+
 
 class LBAAccumulator(Accumulator):
     
@@ -14,10 +17,10 @@ class LBAAccumulator(Accumulator):
         super(LBAAccumulator, self).__init__(ter=ter, A=A, v=v, sv=sv, b=b)
     
     def pdf(self, t):
-        return pyseqsample.models.LBA.pdf(t=t, **self.params)
+        return pdf(t=t, **self.params)
     
     def cdf(self, t):
-        return pyseqsample.models.LBA.cdf(t=t, **self.params)  
+        return cdf(t=t, **self.params)  
     
     def sample_finishing_times(self, n=1000):
         starting_points = sp.stats.uniform(0, self.params['A']).rvs(n)
@@ -41,7 +44,7 @@ class LBAAccumulatorProbabilistic(Accumulator):
         super(LBAAccumulatorProbabilistic, self).__init__(ter=ter, A=A, v=v, sv=sv, b=b, p=p)
     
     def pdf(self, t):
-        return self.params['p'] * pyseqsample.models.LBA.pdf(t=t, 
+        return self.params['p'] * pdf(t=t, 
                                                              ter=self.params['ter'],
                                                              A=self.params['A'],
                                                              v=self.params['v'],
@@ -50,7 +53,7 @@ class LBAAccumulatorProbabilistic(Accumulator):
                                                              )
     
     def cdf(self, t):
-        return self.params['p'] * pyseqsample.models.LBA.cdf(t=t, 
+        return self.params['p'] * cdf(t=t, 
                                                              ter=self.params['ter'],
                                                              A=self.params['A'],
                                                              v=self.params['v'],

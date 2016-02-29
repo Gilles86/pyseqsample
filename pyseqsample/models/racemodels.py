@@ -1,3 +1,4 @@
+import numpy as np
 
 class Accumulator(object):
     
@@ -21,9 +22,15 @@ class Accumulator(object):
 
 class RaceModel:
     
-    def __init__(self, accumulators):        
+    def __init__(self, accumulators, accumulator2response=None):        
         self.accumulators = accumulators
         self.n_accumulators = len(accumulators)
+
+        if accumulator2response == None:
+            self.accumulator2response = np.arange(self.n_accumulators) + 1
+        else:
+            self.accumulator2response = np.array(accumulator2response)
+
         
     
     def likelihood_(self, responses, rts, log=True):
@@ -35,8 +42,10 @@ class RaceModel:
             likelihood = np.ones_like(rts)
         
         for i in np.arange(self.n_accumulators):
-            idx = responses == (i + 1)
-            rts = rts[idx]
+            #print self.accumulator2response
+            idx = responses == self.accumulator2response[i]
+
+            #rts = rts[idx]
             
             if log:
                 likelihood[idx] = np.log(self.accumulators[i].pdf(rts[idx]))
@@ -46,9 +55,9 @@ class RaceModel:
             for j in np.arange(self.n_accumulators):
                 if i != j:
                     if log:
-                        likelihood[idx] += np.log(self.accumulators[i].cdf(rts[idx])) 
+                        likelihood[idx] += np.log(1 - self.accumulators[i].cdf(rts[idx])) 
                     else:
-                        likelihood[idx] *= self.accumulators[i].cdf(rts[idx]) 
+                        likelihood[idx] *= (1 -  self.accumulators[i].cdf(rts[idx]))
                     
         return likelihood
     
@@ -61,7 +70,11 @@ class RaceModel:
             finishing_times[:, i] = accumulator.sample_finishing_times(n=n)
             
         rts = np.nanmin(finishing_times, 1)
-        responses = np.nanargmin(finishing_times, 1) + 1
+        responses = self.accumulator2response[np.nanargmin(finishing_times, 1)]
+
+
+        responses = responses[rts > 0]
+        rts = rts[rts > 0]
         
         return responses, rts
         

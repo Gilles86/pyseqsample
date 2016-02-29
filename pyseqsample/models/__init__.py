@@ -1,2 +1,2 @@
 import LBA
-from racemodels import *
+import racemodels
