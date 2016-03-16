@@ -1,5 +1,4 @@
 import numpy as np
-from collections import OrderedDict
 
 class Accumulator(object):
     
@@ -7,15 +6,10 @@ class Accumulator(object):
     
     def __init__(self, *args, **kwargs):
         
-        self.params = OrderedDict()
-
+        self.params = {}
         
         for param in self.accumulator_parameters:
             self.params[param] = kwargs[param]
-
-    def set_params(self, params):
-        self.params = OrderedDict(zip(self.params.keys(), params))
-
     
     def pdf(self):
         pass
@@ -41,9 +35,7 @@ class RaceModel(object):
     
     def likelihood_(self, responses, rts, log=True):
         
-       
-        assert(responses.shape == rts.shape)
-
+        
         if log:
             likelihood = np.zeros_like(rts)
         else:
@@ -63,9 +55,9 @@ class RaceModel(object):
             for j in np.arange(self.n_accumulators):
                 if i != j:
                     if log:
-                        likelihood[idx] += np.log(1 - self.accumulators[j].cdf(rts[idx])) 
+                        likelihood[idx] += np.log(1 - self.accumulators[i].cdf(rts[idx])) 
                     else:
-                        likelihood[idx] *= (1 -  self.accumulators[j].cdf(rts[idx]))
+                        likelihood[idx] *= (1 -  self.accumulators[i].cdf(rts[idx]))
                     
         return likelihood
     
@@ -88,8 +80,6 @@ class RaceModel(object):
         #rts = rts[rts > 0]
         
         return responses, rts
-
-
         
         
 class RaceModelProbabilisticAccumulators(RaceModel):
@@ -99,6 +89,9 @@ class RaceModelProbabilisticAccumulators(RaceModel):
         super(RaceModelProbabilisticAccumulators, self).__init__(*args, **kwargs)
 
         self.p_accumulators = [acc for acc in self.accumulators if 'p' in acc.params]
+
+        for accumulator in self.accumulators:
+            print accumulator, 'p' in accumulator.params
 
 
 
