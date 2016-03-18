@@ -16,17 +16,54 @@ class LBAAccumulator(Accumulator):
         
         super(LBAAccumulator, self).__init__(ter=ter, A=A, v=v, sv=sv, b=b)
     
-    def pdf(self, t):
-        return pdf(t=t, **self.params)
+    def pdf(self, t, condition=0):
+       
+        if isinstance(condition, int):
+            conditions = np.tile(condition, len(t))
+
+        density = np.zeros_like(t)
+
+        for cond in np.arange(self.n_conditions):
+            idx = conditions == cond
+            density[idx] =  pdf(t=t[idx], *self.params[cond, :].tolist())
+
+        return density
     
-    def cdf(self, t):
-        return cdf(t=t, **self.params)  
+    def cdf(self, t, condition=0):
+        if isinstance(condition, int):
+            conditions = np.tile(condition, len(t))
+
+        density = np.zeros_like(t)
+
+        for cond in np.arange(self.n_conditions):
+            idx = conditions == cond
+            density[idx] =  cdf(t=t[idx], *self.params[cond, :].tolist())
+
+        return density
     
-    def sample_finishing_times(self, n=1000):
-        starting_points = sp.stats.uniform(0, self.params['A']).rvs(n)
-        speeds = sp.stats.norm(self.params['v'], self.params['sv']).rvs(n)
-        
-        finishing_times = (self.params['b'] - starting_points) / speeds + self.params['ter']
+    def sample_finishing_times(self, condition=None, n=1000, robust=True):
+
+        if condition is None:
+            condition = np.repeat(np.arange(self.n_conditions), n)
+
+        starting_points = sp.stats.uniform(0, self.get_param('A', condition=condition)).rvs(len(condition))
+
+        if robust:
+            speeds = np.zeros(condition.shape)
+            for cond in np.unique(condition):
+                idx = cond == condition
+                loc = self.get_param('v', condition=cond)
+                scale = self.get_param('sv', condition=cond)
+                speeds[idx] = sp.stats.truncnorm(a=-loc/scale,
+                                                 b=np.inf,
+                                                 loc=loc, 
+                                                 scale=scale).rvs(idx.sum())
+        else:
+            speeds = sp.stats.norm(self.get_param('v', condition=condition), self.get_param('sv', condition=condition)).rvs(len(condition))
+
+        print speeds
+
+        finishing_times = (self.get_param('b', condition=condition) - starting_points) / speeds + self.get_param('ter', condition=condition)
         
         
         return finishing_times
@@ -43,23 +80,32 @@ class LBAAccumulatorProbabilistic(Accumulator):
         
         super(LBAAccumulatorProbabilistic, self).__init__(ter=ter, A=A, v=v, sv=sv, b=b, p=p)
     
-    def pdf(self, t):
-        return self.params['p'] * pdf(t=t, 
-                                                             ter=self.params['ter'],
-                                                             A=self.params['A'],
-                                                             v=self.params['v'],
-                                                             sv=self.params['sv'],
-                                                             b=self.params['b']
-                                                             )
+
+    def pdf(self, t, condition=0):
+       
+        if isinstance(condition, int):
+            conditions = np.tile(condition, len(t))
+
+        density = np.zeros_like(t)
+
+        for cond in np.arange(self.n_conditions):
+            idx = conditions == cond
+            density[idx] = self.params[cond, -1] * pdf(t=t[idx], *self.params[cond, :-1].tolist())
+
+        return density
     
-    def cdf(self, t):
-        return self.params['p'] * cdf(t=t, 
-                                                             ter=self.params['ter'],
-                                                             A=self.params['A'],
-                                                             v=self.params['v'],
-                                                             sv=self.params['sv'],
-                                                             b=self.params['b']
-                                                             )
+    def cdf(self, t, condition=0):
+        if isinstance(condition, int):
+            conditions = np.tile(condition, len(t))
+
+        density = np.zeros_like(t)
+
+        for cond in np.arange(self.n_conditions):
+            idx = conditions == cond
+            density[idx] = self.params[cond, -1] * cdf(t=t[idx], *self.params[cond, :-1].tolist())
+
+        return density
+
     
     def sample_finishing_times(self, n=1000):
         starting_points = sp.stats.uniform(0, self.params['A']).rvs(n)

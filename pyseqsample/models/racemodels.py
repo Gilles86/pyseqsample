@@ -1,17 +1,26 @@
 import numpy as np
 from collections import OrderedDict
+from collections import Iterable
 
 class Accumulator(object):
     
     accumulator_parameters = []
     
     def __init__(self, *args, **kwargs):
-        
-        self.params = OrderedDict()
 
+
+        # Check if there are multiple conditions involved:
+        self.n_conditions = 1
         
         for param in self.accumulator_parameters:
-            self.params[param] = kwargs[param]
+            if isinstance(kwargs[param], Iterable):
+                self.n_conditions = np.max((self.n_conditions, len(kwargs[param])))
+        
+        self.params = np.zeros((self.n_conditions, len(self.accumulator_parameters)))
+        
+        for i, param in enumerate(self.accumulator_parameters):
+            self.params[:, i] = kwargs[param]
+
 
     def set_params(self, params):
         self.params = OrderedDict(zip(self.params.keys(), params))
@@ -23,8 +32,14 @@ class Accumulator(object):
     def cdf(self):
         pass    
     
-    def sample_finishing_time(self):
+    def sample_finishing_times(self):
         pass
+
+    def get_param(self, param, condition=slice(None)):
+        if self.n_conditions == 1:
+            return self.params[0, self.accumulator_parameters.index(param)]
+        else:
+            return self.params[condition, self.accumulator_parameters.index(param)]
 
 class RaceModel(object):
     
@@ -39,7 +54,7 @@ class RaceModel(object):
 
         
     
-    def likelihood_(self, responses, rts, log=True):
+    def likelihood_(self, responses, rts, condition=0, log=True):
         
        
         assert(responses.shape == rts.shape)
@@ -88,6 +103,7 @@ class RaceModel(object):
         #rts = rts[rts > 0]
         
         return responses, rts
+
 
 
         
