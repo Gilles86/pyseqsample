@@ -1,4 +1,4 @@
-from pyseqsample.utils import dnormP, pnormP
+from pyseqsample.utils import dnormP, pnormP, dnorm, pnorm
 import numpy as np
 from pyseqsample.models.racemodels import Accumulator
 import scipy as sp
@@ -9,42 +9,48 @@ class LBAAccumulator(Accumulator):
     
     accumulator_parameters = ['ter', 'A', 'v', 'sv', 'b']
     
-    def __init__(self, ter=.2, A=.5, v=1, sv=.1, b=2, B=None):
+    def __init__(self, ter=.2, A=.5, v=1, sv=.1, b=2, B=None, *args, **kwargs):
         
         if B != None:
             b = A + B
         
-        super(LBAAccumulator, self).__init__(ter=ter, A=A, v=v, sv=sv, b=b)
+        return super(LBAAccumulator, self).__init__(ter=ter, A=A, v=v, sv=sv, b=b, *args, **kwargs)
     
     def pdf(self, t, condition=0):
+
+        if self.params.shape[0] == 1:
+            return pdf(t=t, *self.params[0, :].tolist())
        
         if isinstance(condition, int):
-            conditions = np.tile(condition, len(t))
+            condition = np.tile(condition, len(t))
 
         density = np.zeros_like(t)
 
         for cond in np.arange(self.n_conditions):
-            idx = conditions == cond
+            idx = condition == cond
             density[idx] =  pdf(t=t[idx], *self.params[cond, :].tolist())
 
         return density
     
     def cdf(self, t, condition=0):
         if isinstance(condition, int):
-            conditions = np.tile(condition, len(t))
+            condition = np.tile(condition, len(t))
 
         density = np.zeros_like(t)
 
         for cond in np.arange(self.n_conditions):
-            idx = conditions == cond
+            idx = condition == cond
             density[idx] =  cdf(t=t[idx], *self.params[cond, :].tolist())
 
         return density
     
     def sample_finishing_times(self, condition=None, n=1000, robust=True):
-
+        
         if condition is None:
             condition = np.repeat(np.arange(self.n_conditions), n)
+
+        if isinstance(condition, int):
+            condition = np.repeat(condition, n)
 
         starting_points = sp.stats.uniform(0, self.get_param('A', condition=condition)).rvs(len(condition))
 
@@ -61,92 +67,111 @@ class LBAAccumulator(Accumulator):
         else:
             speeds = sp.stats.norm(self.get_param('v', condition=condition), self.get_param('sv', condition=condition)).rvs(len(condition))
 
-        print speeds
 
         finishing_times = (self.get_param('b', condition=condition) - starting_points) / speeds + self.get_param('ter', condition=condition)
         
         
-        return finishing_times
+        return condition, finishing_times
         
         
-class LBAAccumulatorProbabilistic(Accumulator):
+class LBAAccumulatorProbabilistic(LBAAccumulator):
     
     accumulator_parameters = ['ter', 'A', 'v', 'sv', 'b', 'p']
     
-    def __init__(self, ter=.2, A=.5, v=1, sv=.1, b=2, p=0.5, B=None):
+    def __init__(self, ter=.2, A=.5, v=1, sv=.1, b=2, p=0.5, B=None, **kwargs):
         
         if B != None:
             b = A + B
         
-        super(LBAAccumulatorProbabilistic, self).__init__(ter=ter, A=A, v=v, sv=sv, b=b, p=p)
+        super(LBAAccumulatorProbabilistic, self).__init__(ter=ter, A=A, v=v, sv=sv, b=b, p=p, **kwargs)
     
 
-    def pdf(self, t, condition=0):
+    def pdf(self, t, condition=0, robust=False):
        
         if isinstance(condition, int):
-            conditions = np.tile(condition, len(t))
+            condition = np.tile(condition, len(t))
+
 
         density = np.zeros_like(t)
 
         for cond in np.arange(self.n_conditions):
-            idx = conditions == cond
-            density[idx] = self.params[cond, -1] * pdf(t=t[idx], *self.params[cond, :-1].tolist())
+            idx = condition == cond
+            density[idx] = self.params[cond, -1] * pdf(t=t[idx], *self.params[cond, :-1].tolist(), robust=robust)
 
         return density
     
-    def cdf(self, t, condition=0):
+    def cdf(self, t, condition=0, robust=False):
         if isinstance(condition, int):
-            conditions = np.tile(condition, len(t))
+            condition = np.tile(condition, len(t))
 
         density = np.zeros_like(t)
 
         for cond in np.arange(self.n_conditions):
-            idx = conditions == cond
-            density[idx] = self.params[cond, -1] * cdf(t=t[idx], *self.params[cond, :-1].tolist())
+            idx = condition == cond
+            density[idx] = self.params[cond, -1] * cdf(t=t[idx], *self.params[cond, :-1].tolist(), robust=robust)
 
         return density
 
     
-    def sample_finishing_times(self, n=1000):
-        starting_points = sp.stats.uniform(0, self.params['A']).rvs(n)
-        speeds = sp.stats.norm(self.params['v'], self.params['sv']).rvs(n)
+    def sample_finishing_times(self, *args, **kwargs):
+
+        condition, finishing_times = super(LBAAccumulatorProbabilistic, self).sample_finishing_times(*args, **kwargs)
+        rand_uni = sp.stats.uniform(0, 1).rvs(finishing_times.shape[0])
+
+        for cond in np.unique(condition):
+            idx = condition == cond
+            finishing_times[idx & (rand_uni > self.get_param('p', condition=cond))] = np.inf
         
-        finishing_times = (self.params['b'] - starting_points) / speeds + self.params['ter']
         
-        finishing_times[sp.stats.uniform(0, 1).rvs(n) > self.params['p']] = np.nan
-        
-        
-        return finishing_times
+        return condition, finishing_times
         
         
 
-def pdf(ter, A, v, sv, b, t):
+def pdf(ter, A, v, sv, b, t, robust=False):
     """LBA PDF for a single accumulator"""
+    
+    if robust:
+        dnorm1 = dnormP
+        pnorm1 = pnormP
+    else:
+        dnorm1 = dnorm
+        pnorm1 = pnorm
+
+
     t=np.maximum(t-ter, 1e-5) # absorbed into pdf 
     if A<1e-10: # LATER solution
-        return np.maximum(1e-10, (b/(t**2)*dnormP(b/t, mean=v,sd=sv))
-                          /pnormP(v/sv) )
+        return np.maximum(1e-10, (b/(t**2)*dnorm1(b/t, mean=v,sd=sv))
+                          /pnorm1(v/sv) )
     zs=t*sv
     zu=t*v
     bminuszu=b-zu
     bzu=bminuszu/zs
     bzumax=(bminuszu-A)/zs
-    return np.maximum(1e-10, ((v*(pnormP(bzu)-pnormP(bzumax)) +
-                    sv*(dnormP(bzumax)-dnormP(bzu)))/A)/pnormP(v/sv))
+    return np.maximum(1e-10, ((v*(pnorm1(bzu)-pnorm1(bzumax)) +
+                    sv*(dnorm1(bzumax)-dnorm1(bzu)))/A)/pnorm1(v/sv))
 
-def cdf(ter, A, v, sv, b, t):
+def cdf(ter, A, v, sv, b, t, robust=False):
+
     """LBA CDF for a single accumulator"""
+
+    if robust:
+        dnorm1 = dnormP
+        pnorm1 = pnormP
+    else:
+        dnorm1 = dnorm
+        pnorm1 = pnorm
+
     t=np.maximum(t-ter, 1e-5) # absorbed into cdf         
     if A<1e-10: # LATER solution
-        return np.minimum(1 - 1e-10, np.maximum(1e-10, (pnormP(b/t,mean=v,sd=sv))
-                                        /pnormP(v/sv) ))
+        return np.minimum(1 - 1e-10, np.maximum(1e-10, (pnorm1(b/t,mean=v,sd=sv))
+                                        /pnorm1(v/sv) ))
     zs=t*sv
     zu=t*v
     bminuszu=b-zu
     xx=bminuszu-A
     bzu=bminuszu/zs
     bzumax=xx/zs
-    tmp1=zs*(dnormP(bzumax)-dnormP(bzu))
-    tmp2=xx*pnormP(bzumax)-bminuszu*pnormP(bzu)
-    return np.minimum(np.maximum(1e-10,(1+(tmp1+tmp2)/A)/pnormP(v/sv)), 1 - 1e-10)
+    tmp1=zs*(dnorm1(bzumax)-dnorm1(bzu))
+    tmp2=xx*pnorm1(bzumax)-bminuszu*pnorm1(bzu)
+    return np.minimum(np.maximum(1e-10,(1+(tmp1+tmp2)/A)/pnorm1(v/sv)), 1 - 1e-10)
 
