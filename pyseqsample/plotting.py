@@ -32,7 +32,7 @@ def plot_quantiles(responses, rts, q=(0.1, 0.3, 0.5, 0.7, 0.9), *args, **kwargs)
     for i, r in enumerate(np.unique(responses)):
         
                 
-        xs = np.percentile(rts, q*100)
+        xs = np.percentile(rts[responses == r], q*100)
         
         ys = q * (responses == r).mean()
 
@@ -41,7 +41,7 @@ def plot_quantiles(responses, rts, q=(0.1, 0.3, 0.5, 0.7, 0.9), *args, **kwargs)
         if 'color' in kwargs.keys():
             plt.plot(xs, ys, c=kwargs['color'], **kwargs)
         else:
-            plt.plot(xs, ys, c=sns.color_palette()[i], **kwargs)
+            plt.plot(xs, ys, c=sns.color_palette()[int(r)], **kwargs)
 
 
     plt.xlim(0, 1.05 * rts.max())

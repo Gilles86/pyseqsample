@@ -33,6 +33,10 @@ class LBAAccumulator(Accumulator):
         return density
     
     def cdf(self, t, condition=0):
+
+        if self.params.shape[0] == 1:
+            return cdf(t=t, *self.params[0, :].tolist())
+
         if isinstance(condition, int):
             condition = np.tile(condition, len(t))
 
@@ -88,6 +92,9 @@ class LBAAccumulatorProbabilistic(LBAAccumulator):
 
     def pdf(self, t, condition=0, robust=False):
        
+        if self.params.shape[0] == 1:
+            return pself.params[cond, -1] * pdf(t=t, *self.params[0, :].tolist(), robust=robust)
+
         if isinstance(condition, int):
             condition = np.tile(condition, len(t))
 
@@ -101,6 +108,10 @@ class LBAAccumulatorProbabilistic(LBAAccumulator):
         return density
     
     def cdf(self, t, condition=0, robust=False):
+
+        if self.params.shape[0] == 1:
+            return pself.params[cond, -1] * cdf(t=t, *self.params[0, :].tolist(), robust=robust)
+
         if isinstance(condition, int):
             condition = np.tile(condition, len(t))
 

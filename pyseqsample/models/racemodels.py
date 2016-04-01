@@ -2,6 +2,8 @@ import numpy as np
 from collections import OrderedDict
 from collections import Iterable
 import scipy as sp
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 class Accumulator(object):
     
@@ -26,8 +28,8 @@ class Accumulator(object):
             self.name = kwargs['name']
 
 
-    def set_params(self, params):
-        self.params = OrderedDict(zip(self.params.keys(), params))
+    def set_params(self, key, value, condition):
+        self.params[condition, self.accumulator_parameters.index(key)] = value 
 
     
     def pdf(self):
@@ -52,7 +54,7 @@ class RaceModel(object):
         self.n_accumulators = len(accumulators)
 
         if accumulator2response is None:
-            self.accumulator2response = np.arange(self.n_accumulators) + 1
+            self.accumulator2response = np.arange(self.n_accumulators)
             self.more_accumulators_than_responses = False
         else:
             self.accumulator2response = np.array(accumulator2response)
@@ -111,16 +113,16 @@ class RaceModel(object):
 
                 
                 if log:
-                    likelihood[idx] = np.log(self.accumulators[i].pdf(rts[idx]))
+                    likelihood[idx] = np.log(self.accumulators[i].pdf(rts[idx], condition=condition[idx]))
                 else:
-                    likelihood[idx] = self.accumulators[i].pdf(rts[idx])
+                    likelihood[idx] = self.accumulators[i].pdf(rts[idx], condition=condition[idx])
                 
                 for j in np.arange(self.n_accumulators):
                     if i != j:
                         if log:
-                            likelihood[idx] += np.log(1 - self.accumulators[j].cdf(rts[idx])) 
+                            likelihood[idx] += np.log(1 - self.accumulators[j].cdf(rts[idx], condition=condition[idx])) 
                         else:
-                            likelihood[idx] *= (1 -  self.accumulators[j].cdf(rts[idx]))
+                            likelihood[idx] *= (1 -  self.accumulators[j].cdf(rts[idx], condition=condition[idx]))
                     
         return likelihood
     
@@ -153,23 +155,57 @@ class RaceModel(object):
         return condition, mapped_responses, rts
 
 
-    def get_quantiles(self, condition, response, q=(0.1, 0.3, 0.5, 0.7, 0.9), tmax=10, steps=5000):
+    def get_quantiles(self, condition, response, q=(0.1, 0.3, 0.5, 0.7, 0.9), tmax=10, steps=5000, give_proportion=False):
 
         t = np.linspace(0, tmax, steps)
 
         y = self.likelihood_(np.ones_like(t) * response, t, condition=np.ones_like(t) * condition, log=False)
         integral = sp.integrate.cumtrapz(y, t, initial=0)
 
-        q = np.array(q)
+
+        #proportion = self.get_response_proportion(condition, response, tmax)
+
+        #q = proportion * np.array(q)
+
+        #return integral
+
+        integral /= integral.max()
 
         rts = t[np.abs(integral - q[:, np.newaxis]).argmin(1)]
 
-        return rts
+        if give_proportion:
+            return proportion, rts
+        else:
+            return rts
 
     def get_response_proportion(self, condition, response, tmax=np.inf):
 
         ll = lambda t: self.likelihood_(np.ones((1,)) * response, np.array([t]), condition=np.ones((1,)) * condition, log=False)[0]
         return sp.integrate.quad(ll, 0, tmax)[0]
+
+    def plot_quantiles(self, condition, q=(0.1, 0.3, 0.5, 0.7, 0.9), tmax=10, steps=5000, **kwargs):
+       
+        if 'marker' not in kwargs.keys():
+            kwargs['marker'] = 'x'
+
+        if 'markeredgewidth' not in kwargs.keys():
+            kwargs['markeredgewidth'] = 2
+
+        q = np.array(q)
+
+        for response in np.unique(self.accumulator2response):
+            proportion = self.get_response_proportion(condition, response, tmax)
+            quantiles = self.get_quantiles(condition, response, q, tmax, steps)
+            xs = quantiles
+            ys = proportion * q
+
+            if 'color' in kwargs.keys():
+                plt.plot(xs, ys, c=kwargs['color'], **kwargs)
+            else:
+                plt.plot(xs, ys, c=sns.color_palette()[response], **kwargs)
+
+            
+
 
 
 
