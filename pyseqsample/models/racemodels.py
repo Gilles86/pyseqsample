@@ -165,7 +165,7 @@ class RaceModel(object):
 
         #proportion = self.get_response_proportion(condition, response, tmax)
 
-        #q = proportion * np.array(q)
+        q = np.array(q)
 
         #return integral
 
