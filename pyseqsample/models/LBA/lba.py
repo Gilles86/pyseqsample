@@ -185,7 +185,7 @@ def cdf(ter, A, v, sv, b, t, robust=False, posdrift=True):
 
     t=np.maximum(t-ter, 1e-5) # absorbed into cdf         
     if A<1e-10: # LATER solution
-        return np.minimum(1 - 1e-10, np.maximum(1e-10, (pnorm1(b/t,mean=v,sd=sv))/ denom ))
+        return np.minimum(1 - 1e-10, np.maximum(1e-10, (1 - pnorm1(b/t,mean=v,sd=sv))/ denom ))
     zs=t*sv
     zu=t*v
     bminuszu=b-zu
