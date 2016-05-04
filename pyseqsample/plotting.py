@@ -36,8 +36,6 @@ def plot_quantiles(responses, rts, q=(0.1, 0.3, 0.5, 0.7, 0.9), *args, **kwargs)
         
         ys = q * (responses == r).mean()
 
-        print kwargs
-
         if 'color' in kwargs.keys():
             plt.plot(xs, ys, c=kwargs['color'], **kwargs)
         else:
