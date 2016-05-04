@@ -91,9 +91,11 @@ class LBAAccumulatorProbabilistic(LBAAccumulator):
     
 
     def pdf(self, t, condition=0, robust=False, **kwargs):
-       
+
         if self.params.shape[0] == 1:
-            return pself.params[cond, -1] * pdf(t=t, *self.params[0, :].tolist(), robust=robust, **kwargs)
+            if self.params[cond, -1] == 0:
+                return np.zeros_like(t)
+            return self.params[cond, -1] * pdf(t=t, *self.params[0, :].tolist(), robust=robust, **kwargs)
 
         if isinstance(condition, int):
             condition = np.tile(condition, len(t))
@@ -103,14 +105,20 @@ class LBAAccumulatorProbabilistic(LBAAccumulator):
 
         for cond in np.arange(self.n_conditions):
             idx = condition == cond
-            density[idx] = self.params[cond, -1] * pdf(t=t[idx], *self.params[cond, :-1].tolist(), robust=robust, **kwargs)
+
+            if self.params[cond, -1] == 0:
+                density[idx] = 0
+            else:
+                density[idx] = self.params[cond, -1] * pdf(t=t[idx], *self.params[cond, :-1].tolist(), robust=robust, **kwargs)
 
         return density
     
     def cdf(self, t, condition=0, robust=False, **kwargs):
 
         if self.params.shape[0] == 1:
-            return pself.params[cond, -1] * cdf(t=t, *self.params[0, :].tolist(), robust=robust, **kwargs)
+            if self.params[cond, -1] == 0:
+                return np.zeros_like(t)
+            return self.params[cond, -1] * cdf(t=t, *self.params[0, :].tolist(), robust=robust, **kwargs)
 
         if isinstance(condition, int):
             condition = np.tile(condition, len(t))
@@ -119,7 +127,10 @@ class LBAAccumulatorProbabilistic(LBAAccumulator):
 
         for cond in np.arange(self.n_conditions):
             idx = condition == cond
-            density[idx] = self.params[cond, -1] * cdf(t=t[idx], *self.params[cond, :-1].tolist(), robust=robust, **kwargs)
+            if self.params[cond, -1] == 0:
+                density[idx] = 0
+            else:
+                density[idx] = self.params[cond, -1] * cdf(t=t[idx], *self.params[cond, :-1].tolist(), robust=robust, **kwargs)
 
         return density
 
